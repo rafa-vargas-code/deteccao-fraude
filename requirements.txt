@@ -1,9 +1,9 @@
 pandas
-scikit-learn
 imbalanced-learn
-xgboost
 matplotlib
 joblib
 fastapi
 uvicorn
 jupyter
+scikit-learn==1.7.2
+xgboost==3.2.0
