@@ -1,6 +1,6 @@
 # Detecção de Fraude em Cartão de Crédito
 
-Projeto de machine learning ponta a ponta: da análise exploratória até uma API servindo o modelo em produção local. O objetivo foi enfrentar um problema clássico de **dados extremamente desbalanceados** — apenas 0,17% das transações são fraude — e documentar as decisões tomadas no caminho, incluindo o que **não** funcionou.
+Projeto de machine learning ponta a ponta: da análise exploratória até uma API servindo o modelo em produção local. O objetivo foi enfrentar um problema clássico de **dados extremamente desbalanceados** apenas 0,17% das transações são fraude e documentar as decisões tomadas no caminho, incluindo o que **não** funcionou.
 
 ## O problema
 
