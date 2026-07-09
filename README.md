@@ -8,7 +8,15 @@ O dataset ([Credit Card Fraud Detection — ULB/Kaggle](https://www.kaggle.com/d
 
 Com esse desbalanceamento, **acurácia é uma métrica inútil**: um modelo que responde "não é fraude" para tudo acerta 99,83%. Por isso o projeto usa **PR-AUC** (área sob a curva precision-recall) como métrica oficial, além de analisar precision e recall separadamente.
 
+## Metodologia
+
+A comparação inicial de modelos foi feita em split 80/20 estratificado. Depois percebi (com ajuda de uma revisão externa) um erro sutil: eu tinha escolhido o threshold de decisão olhando as métricas do próprio conjunto de teste — o que contamina a avaliação, porque o teste deixa de ser "dado nunca visto" no momento em que orienta uma decisão.
+
+A correção foi adotar **três conjuntos (60/20/20)**: o modelo treina no conjunto de treino, o threshold é escolhido no de **validação**, e o de **teste** é tocado uma única vez para o número final. Os resultados abaixo seguem esse protocolo.
+
 ## Resultados
+
+Comparação de modelos (split 80/20, fase exploratória):
 
 | Modelo | PR-AUC |
 |---|---|
@@ -17,11 +25,21 @@ Com esse desbalanceamento, **acurácia é uma métrica inútil**: um modelo que 
 | Random Forest | 0,873 |
 | **XGBoost (scale_pos_weight)** | **0,881** |
 
-O que os números contam:
+**Modelo final (XGBoost, protocolo 60/20/20, threshold 0,7 escolhido na validação):**
+
+| Métrica (conjunto de teste) | Valor |
+|---|---|
+| PR-AUC | **0,864** |
+| Precision (fraude) | 0,91 |
+| Recall (fraude) | 0,82 |
+
+Os números finais são um pouco menores que os da fase exploratória — e é assim que deve ser: são medidos sem vazamento de decisão, com menos dados de treino. Prefiro números menores e defensáveis a números bonitos e contaminados.
+
+O que os resultados contam:
 
 - **SMOTE quase não ajudou.** Criar 227 mil fraudes sintéticas rendeu praticamente o mesmo que o parâmetro `class_weight` de uma linha. O gargalo não era o balanceamento — era a fronteira linear da regressão logística. Testei, documentei e descartei pela complexidade extra.
 - **Modelos de árvore quebraram o teto.** Random Forest e XGBoost capturam interações não-lineares entre as features (as mais importantes: V17, V14 e V12) que a logística não alcança.
-- **Threshold é decisão de negócio, não de estatística.** No threshold de 0,9, o modelo final opera com **recall 0,84 e precision 0,92** — captura 84% das fraudes com pouquíssimos alarmes falsos. A escolha veio de análise de custo: 0,9 domina 0,5 (mesmo recall, mais precision) e perde menos fraudes que 0,99.
+- **Threshold é decisão de negócio, não de estatística.** A escolha veio de análise de custo na validação: entre capturar mais fraudes (recall) e bloquear menos clientes honestos (precision), o threshold 0,7 manteve o melhor equilíbrio para o cenário de banco — fraude perdida custa o valor da transação, alarme falso custa um SMS de confirmação.
 
 ## Como rodar
 
@@ -51,10 +69,11 @@ Interface de teste: http://127.0.0.1:8000/docs — endpoint `POST /predict` rece
 ## Estrutura
 
 ```
-├── notebooks/          # análises (exploração → baseline → melhorias)
+├── notebooks/          # análises (exploração → baseline → melhorias → validação)
 │   ├── 01-eda.ipynb
 │   ├── 02-baseline.ipynb
-│   └── 03-melhorias.ipynb
+│   ├── 03-melhorias.ipynb
+│   └── 04-validacao.ipynb
 ├── src/api.py          # API FastAPI servindo o modelo
 ├── models/             # modelo XGBoost treinado (joblib)
 └── data/               # dataset (não versionado — baixar do Kaggle)
@@ -62,7 +81,10 @@ Interface de teste: http://127.0.0.1:8000/docs — endpoint `POST /predict` rece
 
 ## Melhorias futuras
 
+- Remover a feature `Time` do modelo (artefato do dataset: segundos desde a primeira transação do CSV — nenhum sistema real fornece isso de forma coerente com o treino)
+- Split temporal (treinar no passado, testar no futuro) — mais honesto para fraude, que tem dinâmica no tempo
+- Testes automatizados da API (TestClient do FastAPI)
 - Tuning de hiperparâmetros do XGBoost (GridSearch/Optuna)
-- Validação cruzada estratificada em vez de holdout único
+- Validação cruzada estratificada
 - Containerização com Docker
 - Monitoramento de drift do modelo em produção

@@ -6,7 +6,7 @@ import pandas as pd
 app = FastAPI(title="API de Detecção de Fraude")
 
 modelo = joblib.load("models/modelo_xgb.joblib")
-THRESHOLD = 0.9
+THRESHOLD = 0.7
 
 class Transacao(BaseModel):
     Time: float
