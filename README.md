@@ -14,7 +14,7 @@ A comparação inicial de modelos foi feita em split 80/20 estratificado. Depois
 
 A correção foi adotar **três conjuntos (60/20/20)**: o modelo treina no conjunto de treino, o threshold é escolhido no de **validação**, e o de **teste** é tocado uma única vez para o número final. Os resultados abaixo seguem esse protocolo.
 
-O modelo servido pela API é o treinado nesse protocolo (60% dos dados). Considerei re-treinar juntando treino e validação para aproveitar mais dados, mas re-treinar desloca a calibração das probabilidades, e o threshold de 0,7 foi calibrado neste modelo específico. Preferi manter a consistência entre modelo e threshold.
+O modelo servido pela API é o treinado nesse protocolo (60% dos dados). Considerei re-treinar juntando treino e validação para aproveitar mais dados, mas re-treinar desloca a calibração das probabilidades, e o threshold foi calibrado neste modelo específico. Preferi manter a consistência entre modelo e threshold.
 
 ## Resultados
 
@@ -27,13 +27,13 @@ Comparação de modelos (split 80/20, fase exploratória):
 | Random Forest | 0,873 |
 | **XGBoost (scale_pos_weight)** | **0,881** |
 
-**Modelo final (XGBoost, protocolo 60/20/20, threshold 0,7 escolhido na validação):**
+**Modelo final (XGBoost, protocolo 60/20/20, threshold 0,05 escolhido na validação):**
 
 | Métrica (conjunto de teste) | Valor |
 |---|---|
 | PR-AUC | **0,864** |
-| Precision (fraude) | 0,91 |
-| Recall (fraude) | 0,82 |
+| Precision (fraude) | 0,81 |
+| Recall (fraude) | 0,84 |
 
 Os números finais são um pouco menores que os da fase exploratória, e é assim que deve ser: são medidos sem vazamento de decisão e com menos dados de treino. Prefiro números menores e defensáveis a números bonitos e contaminados.
 
@@ -41,7 +41,8 @@ O que os resultados contam:
 
 - **SMOTE quase não ajudou.** Criar 227 mil fraudes sintéticas rendeu praticamente o mesmo que o parâmetro `class_weight` de uma linha. O gargalo não era o balanceamento, era a fronteira linear da regressão logística. Testei, documentei e descartei pela complexidade extra.
 - **Modelos de árvore quebraram o teto.** Random Forest e XGBoost capturam interações não-lineares entre as features (as mais importantes: V17, V14 e V12) que a logística não alcança.
-- **Threshold é decisão de negócio, não de estatística.** A escolha veio de análise de custo na validação: entre capturar mais fraudes (recall) e bloquear menos clientes honestos (precision), o threshold 0,7 manteve o melhor equilíbrio para o cenário de banco, onde fraude perdida custa o valor da transação e alarme falso custa um SMS de confirmação.
+- **O modelo é polarizado, e isso limita o threshold.** Explorei thresholds de 0,01 a 0,99 na validação: a curva é quase insensível na faixa central (de 0,3 a 0,7 as métricas praticamente não mudam), porque com `scale_pos_weight` alto o XGBoost cospe probabilidades coladas em 0 ou 1. Mais revelador: mesmo no threshold mais agressivo, o recall estaciona em ~0,79 na validação. Cerca de um quinto das fraudes recebe probabilidade próxima de zero, ou seja, o modelo não as enxerga, e nenhum ajuste de threshold resgata fraude que o modelo não farejou.
+- **Threshold é decisão de negócio, não de estatística.** No cenário de banco, fraude perdida custa o valor da transação (média ~122€) e alarme falso custa um SMS de confirmação. Essa assimetria empurra o threshold para baixo: escolhi 0,05, que na validação entrega o recall máximo alcançável pelo modelo pagando poucos alarmes falsos a mais (0,05 domina 0,01, que tem o mesmo recall com precision bem pior; e a conta de custo favorece 0,05 sobre a faixa central).
 
 ## Como rodar
 
